@@ -1340,7 +1340,7 @@ cat > "$HTML_FILE" <<'EOF'
       loading: false,
       message: '',
       title: 'شارژ اضطراری',
-      subtitle: 'در صورت اتمام حجم یا زمان، می‌توانید از شارژ اضطراری استفاده کنید (فقط یکبار).',
+      subtitle: 'در صورت اتمام حجم یا زمان، می‌توانید از شارژ اضطراری استفاده کنید (فقط یکبار در هر دوره تمدید).',
 
       username: '{{ user.username }}',
       statusValue: '{{ user.status.value }}',
