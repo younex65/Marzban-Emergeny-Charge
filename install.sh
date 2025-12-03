@@ -885,7 +885,7 @@ cat > "$HTML_FILE" <<'EOF'
       }
     }
 	
-	/* Emergency Section Light/Dark Theme Support */
+/* <!-- -------------- EMERGENCY BUTTON SECTION CSS-------------- --> */
 
 /* در تم تیره */
 [data-bs-theme="dark"] .emergency-block {
@@ -899,17 +899,35 @@ cat > "$HTML_FILE" <<'EOF'
 
 /* دکمه استفاده‌شده */
 .emergency-used-btn {
-  min-width: 220px;
+  min-width: 160px;
   height: 42px;
   border-radius: 0.875rem;
 }
 
 /* دکمه اصلی */
 .emergency-btn {
-  min-width: 220px;
+  min-width: 160px;
   height: 42px;
   border-radius: 0.875rem;
 }
+
+/* بلاک اصلی */
+.my-block.emergency-block {
+  border-radius: 0.875rem !important;  /* همان مقدار ردیوس بلاک‌ها */
+  overflow: hidden;  /* برای جلوگیری از بیرون زدن محتوا از گوشه‌ها */
+  align-content: center;
+}
+/* تنظیمات ارتفاع برای وضعیت محدود */
+.height-adjusted {
+  height: 90px !important;  /* افزایش ارتفاع کادر برای وضعیت محدود */
+}
+
+/* تنظیمات دیگر */
+ .emergency-block {
+   height: 60px;  /* ارتفاع پیش‌فرض کادر */
+}
+  
+/* <!-- -------------- EMERGENCY BUTTON SECTION CSS END-------------- --> */
 
   </style>
 
@@ -942,7 +960,7 @@ cat > "$HTML_FILE" <<'EOF'
       window.app = {
         darkMode: true,
         currentLang: 'fa',
-        avatarUrl: 'https://i.postimg.cc/jdrjCggH/MrClock.jpg',
+        avatarUrl: 'https://raw.githubusercontent.com/younex65/public-assets/refs/heads/main/icons/profile2.svg',
         
         translations: {
           fa: {
@@ -1194,6 +1212,105 @@ cat > "$HTML_FILE" <<'EOF'
       };
     });
   </script>
+  
+  <!-- -------------- EMERGENCY BUTTON SECTION SCRIPT-------------- -->
+  
+  <script>
+  function emergencyWidget() {
+    return {
+      used: false,
+      loading: false,
+      message: '',
+      title: 'شارژ اضطراری',
+      subtitle: 'در صورت اتمام حجم یا زمان، فعال میشود',  // مقدار پیش‌فرض برای کاربرانی که وضعیت active دارند
+
+      username: '{{ user.username }}',
+      statusValue: '{{ user.status.value }}',
+
+      emergencyBase() {
+        return window.location.origin.replace(":4178", "");
+      },
+
+      async init() {
+        // تنظیم عنوان و متن
+        if (this.statusValue === 'active') {
+          this.subtitle = 'در صورت اتمام حجم یا زمان، فعال میشود';  // برای کاربران فعال
+          this.title = 'شارژ اضطراری';
+        } else if (this.statusValue === 'limited') {
+          this.subtitle = 'فقط یکبار در طول هر دوره تمدید میتوانید از شارژ اضطراری رایگان استفاده کنید.';
+          this.title = 'شارژ اضطراری';
+        }
+
+        if (this.statusValue === 'limited' || this.statusValue === 'expired') {
+          this.showButton = true;
+        }
+
+        try {
+          const res = await fetch(`${this.emergencyBase()}/emergency/${this.username}`);
+
+          if (!res.ok) {
+            this.message = 'عدم اتصال به سرویس اضطراری.';
+            return;
+          }
+
+          const j = await res.json();
+
+          this.used = !!j.used;
+
+          if (this.used) {
+            this.message = 'شما قبلاً از شارژ اضطراری استفاده کرده‌اید.';
+            this.showButton = false;
+          }
+
+        } catch (e) {
+          this.message = 'عدم اتصال به سرویس اضطراری.';
+        }
+      },
+
+      async requestEmergency() {
+        if (!confirm('آیا مطمئن هستید؟ شارژ اضطراری فقط یکبار قابل استفاده است.')) {
+          return;
+        }
+
+        this.loading = true;
+
+        try {
+          const res = await fetch(
+            `${this.emergencyBase()}/emergency/${this.username}/grant`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                add_bytes: 500 * 1024 * 1024,   // 500 MB
+                add_seconds: 12 * 3600          // 12 hours
+              })
+            }
+          );
+
+          if (!res.ok) {
+            this.message = "خطا: " + (await res.text());
+            this.loading = false;
+            return;
+          }
+
+          this.message = "شارژ اضطراری با موفقیت اعمال شد.";
+          this.used = true;
+          this.showButton = false;
+
+          setTimeout(() => location.reload(), 1500);
+
+        } catch (e) {
+          this.message = "عدم اتصال به سرویس اضطراری.";
+        }
+
+        this.loading = false;
+      }
+    };
+  }
+</script>
+
+<!-- -------------- EMERGENCY BUTTON SECTION SCRIPT END-------------- -->
+  
 </head>
 
 <body>
@@ -1292,20 +1409,27 @@ cat > "$HTML_FILE" <<'EOF'
     </div>
 
 <!-- -------------- EMERGENCY BUTTON SECTION -------------- -->
-<!-- -------------- EMERGENCY BUTTON SECTION -------------- -->
 <div class="row g-3 mb-3" x-data="emergencyWidget()" x-cloak>
   <div class="col">
-    <div class="my-block emergency-block p-3 rounded">
+    <div class="my-block emergency-block p-3 rounded" :class="{'height-adjusted': statusValue === 'limited'}">
       <div class="d-flex align-items-center justify-content-between">
 
         <div>
-          <div class="fw-semibold fs-5 my-text-heading" x-text="title"></div>
-          <div class="small mt-1 my-text-content" x-text="subtitle"></div>
+          <!-- عنوان شارژ اضطراری -->
+          <div class="fw-semibold fs-5 my-text-heading d-flex align-items-center" style="font-weight: 500 !important;">
+            <span x-text="title"></span>
+            <!-- عبارت برای کاربران با وضعیت active -->
+            <span x-show="statusValue === 'active'" style="font-size: 0.8rem; margin-left: 5px;">
+            </span>
+			<span style="font-size: 0.8rem; margin-left: 5px; font-weight: 500; margin-right: 5px;" x-text="subtitle">
+			</span>
+          </div>
         </div>
 
         <div>
+          <!-- دکمه شارژ اضطراری فقط برای کاربرانی که وضعیتشان محدود است نمایش داده می‌شود -->
           <button
-            x-show="showButton"
+            x-show="statusValue === 'limited' && !used"
             @click="requestEmergency"
             :disabled="loading"
             class="btn btn-warning fw-bold emergency-btn"
@@ -1314,8 +1438,9 @@ cat > "$HTML_FILE" <<'EOF'
             <span x-show="loading">در حال اعمال…</span>
           </button>
 
+          <!-- دکمه شارژ اضطراری استفاده شده -->
           <button
-            x-show="!showButton && used"
+            x-show="statusValue === 'limited' && used"
             class="btn btn-outline-secondary emergency-used-btn"
             disabled>
             شارژ اضطراری استفاده شده
@@ -1330,95 +1455,7 @@ cat > "$HTML_FILE" <<'EOF'
     </div>
   </div>
 </div>
-
-<script>
-  function emergencyWidget() {
-    return {
-
-      showButton: false,
-      used: false,
-      loading: false,
-      message: '',
-      title: 'شارژ اضطراری',
-      subtitle: 'در صورت اتمام حجم یا زمان، می‌توانید از شارژ اضطراری استفاده کنید (فقط یکبار در هر دوره تمدید).',
-
-      username: '{{ user.username }}',
-      statusValue: '{{ user.status.value }}',
-
-      // همیشه به دامنه اصلی درخواست بزن — نه 4178
-      emergencyBase() {
-        return window.location.origin.replace(":4178", "");
-      },
-
-      async init() {
-        if (this.statusValue !== 'limited' && this.statusValue !== 'expired') {
-          this.showButton = false;
-          return;
-        }
-
-        try {
-          const res = await fetch(`${this.emergencyBase()}/emergency/${this.username}`);
-
-          if (!res.ok) {
-            this.message = 'عدم اتصال به سرویس اضطراری.';
-            return;
-          }
-
-          const j = await res.json();
-
-          this.used = !!j.used;
-          this.showButton = !this.used;
-
-          if (this.used) {
-            this.message = 'شما قبلاً از شارژ اضطراری استفاده کرده‌اید.';
-          }
-
-        } catch (e) {
-          this.message = 'عدم اتصال به سرویس اضطراری.';
-        }
-      },
-
-      async requestEmergency() {
-        if (!confirm('آیا مطمئن هستید؟ شارژ اضطراری فقط یکبار قابل استفاده است.')) {
-          return;
-        }
-
-        this.loading = true;
-
-        try {
-          const res = await fetch(
-            `${this.emergencyBase()}/emergency/${this.username}/grant`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                add_bytes: 500 * 1024 * 1024,   // 500 MB
-                add_seconds: 12 * 3600          // 12 hours
-              })
-            }
-          );
-
-          if (!res.ok) {
-            this.message = "خطا: " + (await res.text());
-            this.loading = false;
-            return;
-          }
-
-          this.message = "شارژ اضطراری با موفقیت اعمال شد.";
-          this.used = true;
-          this.showButton = false;
-
-          setTimeout(() => location.reload(), 1500);
-
-        } catch (e) {
-          this.message = "عدم اتصال به سرویس اضطراری.";
-        }
-
-        this.loading = false;
-      }
-    };
-  }
-</script>
+<!-- -------------- EMERGENCY BUTTON SECTION END-------------- -->
 
     <div class="connection-buttons">
      <a class="btn my-btn-outline" href="https://t.me/oneplusvpn_support" role="button" rel="noopener noreferrer" target="_blank">
