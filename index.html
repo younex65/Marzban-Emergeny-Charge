@@ -884,12 +884,9 @@ function emergencyWidget() {
     },
 
     _buildBaseUrl() {
-      // Use same origin as page, but if running on dev with :4178 port in origin, remove it.
-      // If you need to force a different origin, set it here.
       try {
-        const origin = window.location.origin;
-        // If origin includes :4178 remove it (keeps protocol + host)
-        return origin.replace(':4178', '');
+        const { protocol, hostname } = window.location;
+        return `${protocol}//${hostname}`;
       } catch {
         return '';
       }
